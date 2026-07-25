@@ -1,0 +1,72 @@
+# Snapshot collection config. Re-run any time to refresh; no schedule required.
+
+data_dir: data
+user_agent: "casehistory/0.1 (research corpus collector; +https://github.com/casehistory)"
+
+# Concurrent downloads (be polite to public hosts).
+concurrency: 6
+request_timeout_seconds: 120
+retries: 5
+
+sources:
+  uscode:
+    enabled: true
+    # Official OLRC machine-readable USLM XML — no API key.
+    base_url: "https://uscode.house.gov/download"
+    # Current full code zip path pattern discovered from the download page.
+    prefer_format: xml  # xml | xhtml | pdf
+    # How many prior release-point pages to fetch (newest first).
+    # null = all ~380+ Pub.L. snapshots (tens of GB of full-code XML).
+    # 40 ≈ recent multi-year coverage for version diffs without filling the disk.
+    max_release_points: 40
+    # Also pull annual historical archive index pages (XHTML/PDF links).
+    include_annual_archives: true
+
+  cap_us_reports:
+    enabled: true
+    # Harvard CAP static bulk: U.S. Reports volumes as JSON + HTML.
+    base_url: "https://static.case.law/us"
+    # null = all volumes; or e.g. [1, 50] for a range (inclusive).
+    volume_range: null
+    formats:
+      - zip  # contains json/ + html/ + metadata/
+
+  scdb:
+    enabled: true
+    # Supreme Court Database (Spaeth) — coded case metadata, free bulk CSVs.
+    base_url: "http://scdb.wustl.edu"
+    modern_prefix: "_brickFiles/2025_01"
+    legacy_prefix: "_brickFiles/Legacy_07"
+    files:
+      - SCDB_2025_01_caseCentered_Citation.csv.zip
+      - SCDB_2025_01_caseCentered_LegalProvision.csv.zip
+      - SCDB_2025_01_justiceCentered_Citation.csv.zip
+      - SCDB_Legacy_07_caseCentered_Citation.csv.zip
+      - SCDB_Legacy_07_justiceCentered_Citation.csv.zip
+
+  courtlistener:
+    enabled: true
+    # Public search API for SCOTUS metadata (no key required at low/moderate volume).
+    # Full opinion text for published history comes primarily from CAP.
+    search_url: "https://www.courtlistener.com/api/rest/v4/search/"
+    court_id: scotus
+    page_size: 100
+    # null = entire SCOTUS search index; int caps pages (100 results/page).
+    # Full historical opinion *text* is in CAP; CL adds modern metadata/PDF links.
+    # Set null and re-run later for a complete CourtListener metadata crawl.
+    max_pages: 100
+    page_delay_seconds: 0.4
+    # Optional: list public S3 bulk keys (full dumps are multi-GB; SCOTUS text is in CAP).
+    bulk_s3_bucket: "com-courtlistener-storage"
+    bulk_s3_prefix: "bulk-data/"
+    bulk_s3_region: "us-west-2"
+    download_bulk_courts_table: true
+
+normalize:
+  # Extract section-level records from USLM XML for version comparison.
+  uscode_sections: true
+  # Flatten CAP cases into jsonl for search/index later.
+  cap_cases: true
+  # Prefer federal SCOTUS jurisdiction when filtering CAP U.S. Reports.
+  # Early volumes include non-SCOTUS cases (e.g. Pennsylvania); keep all but tag.
+  keep_all_cap_cases: true
